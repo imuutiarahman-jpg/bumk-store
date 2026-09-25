@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/USERNAME_CPANEL_ANDA/public_html/
+    - /bin/cp -R * $DEPLOYPATH
