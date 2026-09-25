@@ -1,5 +1,5 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/USERNAME_CPANEL_ANDA/public_html/
+    - export DEPLOYPATH=/home/bumb9491/public_html/
     - /bin/cp -R * $DEPLOYPATH
