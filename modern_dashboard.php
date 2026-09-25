@@ -10,13 +10,17 @@ while($r=$q->fetch_assoc()) $perSampel[]=$r;
 $low = array_values(array_filter($perSampel, fn($x)=>(int)$x['total']<=5));
 $nLow = count($low);
 $low5 = array_slice($low, 0, 5);
-// grafik 7 hari
+// grafik 7 hari — 1 query agregat (sebelumnya 7 query DATE() yg full-scan)
 $labels=[]; $vals=[];
+$map7=[];
+try {
+  $q7=$conn->query("SELECT DATE(tanggal) d, COALESCE(SUM(total),0) t FROM transactions WHERE tanggal >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) GROUP BY DATE(tanggal)");
+  if($q7) while($r7=$q7->fetch_assoc()) $map7[$r7['d']]=(int)$r7['t'];
+} catch(Throwable $e) {}
 for($i=6;$i>=0;$i--){
   $d = date('Y-m-d', strtotime("-$i days"));
   $labels[] = strftime('%a', strtotime($d));
-  $row = $conn->query("SELECT COALESCE(SUM(total),0) t FROM transactions WHERE DATE(tanggal)='$d'")->fetch_assoc();
-  $vals[] = (int)$row['t'];
+  $vals[] = (int)($map7[$d] ?? 0);
 }
 // transaksi terakhir 5
 $recent=[]; $qr=$conn->query("SELECT id,tanggal,total,kasir FROM transactions ORDER BY id DESC LIMIT 5");
@@ -29,6 +33,12 @@ $u = current_user();
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BUMK Store - Dashboard Modern</title>
 <link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="dns-prefetch" href="https://placehold.co">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={theme:{extend:{colors:{brand:{50:'#f0f9ff',100:'#e0f2fe',500:'#0ea5e9',600:'#0284c7',700:'#0369a1',800:'#075985'}}}}}</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -78,7 +88,7 @@ $u = current_user();
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 bg-white p-5 rounded-2xl border shadow-sm"><h3 class="font-bold">Grafik Penjualan Mingguan</h3><p class="text-xs text-slate-500 mb-4">Ringkasan pendapatan 7 hari terakhir (tanpa PPN)</p><div class="h-64 relative"><canvas id="salesChart"></canvas></div></div>
     <div class="bg-white p-5 rounded-2xl border shadow-sm"><div class="flex items-center justify-between mb-4"><h3 class="font-bold">Perlu Restok</h3><a href="modern_laporan.php" class="text-xs text-brand-600 font-semibold">Lihat Semua</a></div>
-      <div class="space-y-3"><?php foreach($low5 as $p): ?><div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border"><div class="flex items-center gap-2.5"><img src="<?= h($p['foto']) ?>" class="w-9 h-9 rounded-lg object-cover bg-slate-200" onerror="this.src='https://placehold.co/100/e2e8f0/64748b?text=Foto'"><div><p class="text-xs font-bold"><?= h($p['nama']) ?></p><p class="text-[10px] text-slate-400"><?= h(strtoupper($p['kategori'])) ?> • Sisa: <b><?= (int)$p['total'] ?></b></p></div></div><a href="modern_laporan.php" class="text-xs text-brand-600">Restok</a></div><?php endforeach; ?><?php if(!$low5): ?><p class="text-xs text-slate-400 italic">Semua stok mencukupi.</p><?php endif; ?></div>
+      <div class="space-y-3"><?php foreach($low5 as $p): ?><div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border"><div class="flex items-center gap-2.5"><img src="<?= h($p['foto']) ?>" width="36" height="36" loading="lazy" decoding="async" class="w-9 h-9 rounded-lg object-cover bg-slate-200" onerror="this.src='https://placehold.co/100/e2e8f0/64748b?text=Foto'"><div><p class="text-xs font-bold"><?= h($p['nama']) ?></p><p class="text-[10px] text-slate-400"><?= h(strtoupper($p['kategori'])) ?> • Sisa: <b><?= (int)$p['total'] ?></b></p></div></div><a href="modern_laporan.php" class="text-xs text-brand-600">Restok</a></div><?php endforeach; ?><?php if(!$low5): ?><p class="text-xs text-slate-400 italic">Semua stok mencukupi.</p><?php endif; ?></div>
     </div>
   </div>
   <div class="bg-white rounded-2xl border shadow-sm overflow-hidden"><div class="p-5 border-b flex items-center justify-between"><h3 class="font-bold">Transaksi Terakhir</h3><a href="modern_laporan.php" class="text-xs text-brand-600 font-semibold">Lihat Semua</a></div>

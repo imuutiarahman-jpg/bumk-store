@@ -84,7 +84,7 @@ $u = current_user();
 <main class="flex-1 overflow-y-auto p-6 custom-scrollbar">
 <div class="bg-white p-6 rounded-2xl border shadow-sm max-w-3xl">
 <?php if($msg): ?><div class="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm"><?= h($msg) ?></div><?php endif; ?>
-<form method="post" enctype="multipart/form-data" class="space-y-4">
+<form method="post" enctype="multipart/form-data" class="space-y-4" id="formSampel">
 <div><label class="text-xs font-semibold text-slate-600">Nama barang</label><input name="nama" required placeholder="cth: Peci Hitam Polos" class="w-full px-3 py-2 border rounded-xl text-sm mt-1"></div>
 <div><label class="text-xs font-semibold text-slate-600">Kategori barang</label>
 <select name="kategori" id="kategori" required class="w-full px-3 py-2 border rounded-xl text-sm mt-1 bg-white">
@@ -93,7 +93,8 @@ $u = current_user();
 <?php endforeach; ?>
 </select></div>
 <div><label class="text-xs font-semibold text-slate-600">Harga dasar (Rp)</label><input name="harga" type="number" min="0" value="50000" required class="w-full px-3 py-2 border rounded-xl text-sm mt-1"></div>
-<div><label class="text-xs font-semibold text-slate-600">Foto sampel</label><input type="file" name="foto" id="foto" accept="image/*" required class="w-full text-sm mt-1">
+<div><label class="text-xs font-semibold text-slate-600">Foto sampel</label><input type="file" name="foto" id="foto" accept="image/jpeg,image/png,image/webp" required class="w-full text-sm mt-1">
+<p id="fotoInfo" class="text-[11px] text-slate-400 mt-1">Foto dari HP otomatis dikompres (maks 1280px, ~200-300KB) agar katalog/kasir tetap cepat. Tampilan tidak berubah.</p>
 <img id="prev" class="rounded-xl mt-2 max-w-[260px] hidden" alt=""></div>
 <div><label class="text-xs font-semibold text-slate-600">Warna (auto dari foto, bisa dikoreksi)</label>
 <div class="flex gap-2 mt-1 items-center">
@@ -127,6 +128,10 @@ katSel.onchange = loadKat; loadKat();
 document.getElementById('addRow').onclick = () => { if(tbl.rows.length<15) row('',0,''); };
 const fi=document.getElementById('foto'),pv=document.getElementById('prev');
 const hx=document.getElementById('warna_hex'),nm=document.getElementById('warna_nama'),sw=document.getElementById('swatch');
+const fotoInfo=document.getElementById('fotoInfo');
+// Kompres sisi-client (tanpa GD server): max 1280px, JPEG q0.78. Tampilan kartu (h-40) tidak berubah.
+function kompresFoto(file){return new Promise(res=>{if(!file||!/^image\//.test(file.type)||file.size<400*1024)return res(file);const img=new Image();img.onload=()=>{const maxS=1280;let w=img.width,h=img.height;const sc=Math.min(1,maxS/Math.max(w,h));w=Math.round(w*sc);h=Math.round(h*sc);const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);URL.revokeObjectURL(img.src);c.toBlob(b=>res(b?new File([b],'foto.jpg',{type:'image/jpeg'}):file),'image/jpeg',0.78);};img.onerror=()=>res(file);img.src=URL.createObjectURL(file);});}
+document.getElementById('formSampel').addEventListener('submit',async e=>{const f=fi.files[0];if(!f)return;e.preventDefault();if(fotoInfo)fotoInfo.textContent='Mengompres foto...';try{const kecil=await kompresFoto(f);const dt=new DataTransfer();dt.items.add(kecil);fi.files=dt.files;if(fotoInfo&&kecil.size<f.size)fotoInfo.textContent='Foto dikompres: '+(f.size/1048576).toFixed(1)+'MB → '+(kecil.size/1024).toFixed(0)+'KB.';}catch(err){}e.target.submit();});
 function apply(c){hx.value=c;nm.value=nearestColorName(c);sw.style.background=c;}
 fi.onchange=()=>{const f=fi.files[0];if(!f)return;pv.classList.remove('hidden');pv.src=URL.createObjectURL(f);
 pv.onload=()=>apply(dominantColorOf(pv));};

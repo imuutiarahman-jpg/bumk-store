@@ -48,6 +48,11 @@ $u = current_user();
 <!DOCTYPE html><html lang="id" class="h-full bg-slate-50"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kelola Stok+Harga - BUMK Store</title>
 <link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="dns-prefetch" href="https://placehold.co">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={theme:{extend:{colors:{brand:{50:'#f0f9ff',100:'#e0f2fe',500:'#0ea5e9',600:'#0284c7',700:'#0369a1',800:'#075985'}}}}}</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -68,7 +73,7 @@ $u = current_user();
 <div class="flex-1 flex flex-col h-full overflow-hidden">
 <header class="bg-white border-b px-4 sm:px-6 py-3.5 flex items-center gap-2"><button onclick="toggleNav()" class="lg:hidden p-2 -ml-2 text-slate-600" aria-label="Menu"><i class="fa-solid fa-bars text-lg"></i></button><h2 class="text-xl font-bold">Kelola: <?= h($s['nama']) ?></h2><a href="sampel.php" class="text-xs text-brand-600 font-semibold">← Kembali</a></header>
 <main class="flex-1 overflow-y-auto p-6"><div class="bg-white p-6 rounded-2xl border shadow-sm max-w-3xl">
-<div class="flex gap-4 items-center mb-4"><img src="<?= h($s['foto']) ?>" class="w-20 h-20 rounded-xl object-cover bg-slate-100" onerror="this.src='https://placehold.co/100/e2e8f0/64748b?text=Foto'"><div><b>[<?= h(strtoupper($s['kategori'] ?? '')) ?>]</b> <?= h($s['warna_nama']) ?><br><span class="text-xs text-slate-500"><?= h($s['kode'] ?? '') ?></span></div></div>
+<div class="flex gap-4 items-center mb-4"><img src="<?= h($s['foto']) ?>" width="80" height="80" loading="lazy" decoding="async" class="w-20 h-20 rounded-xl object-cover bg-slate-100" onerror="this.src='https://placehold.co/100/e2e8f0/64748b?text=Foto'"><div><b>[<?= h(strtoupper($s['kategori'] ?? '')) ?>]</b> <?= h($s['warna_nama']) ?><br><span class="text-xs text-slate-500"><?= h($s['kode'] ?? '') ?></span></div></div>
 <?php if($msg): ?><div class="mb-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm"><?= h($msg) ?></div><?php endif; ?>
 <form method="post">
 <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-xs text-slate-500"><th class="text-left py-2">Ukuran</th><th class="text-left">Stok</th><th class="text-left">Harga (Rp)</th><th></th></tr></thead>

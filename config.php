@@ -169,6 +169,15 @@ foreach ($__seed as [$__n, $__u]) {
     $__st->bind_param('ss', $__n, $__u);
     $__st->execute();
 }
+// index performa — aman di-rerun (cek dulu agar tidak duplicate key error)
+try {
+    $ix = $conn->query("SHOW INDEX FROM transactions WHERE Key_name='ix_trans_tanggal'");
+    if ($ix && $ix->num_rows === 0) $conn->query("ALTER TABLE transactions ADD INDEX ix_trans_tanggal (tanggal)");
+    $ix2 = $conn->query("SHOW INDEX FROM stock WHERE Key_name='ix_stock_sample'");
+    if ($ix2 && $ix2->num_rows === 0) $conn->query("ALTER TABLE stock ADD INDEX ix_stock_sample (sample_id)");
+    $ix3 = $conn->query("SHOW INDEX FROM transaction_items WHERE Key_name='ix_ti_trans'");
+    if ($ix3 && $ix3->num_rows === 0) $conn->query("ALTER TABLE transaction_items ADD INDEX ix_ti_trans (transaction_id)");
+} catch (Throwable $e) {}
 
 if (!is_dir(__DIR__ . '/uploads')) {
     mkdir(__DIR__ . '/uploads', 0777, true);

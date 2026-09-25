@@ -4,22 +4,34 @@ $kat = strtolower(trim($_GET['kat'] ?? ''));
 $where = ($kat !== '' && in_array($kat, kategori_list(), true)) ? "WHERE s.kategori='".$conn->real_escape_string($kat)."'" : '';
 $q = $conn->query("SELECT s.*, COALESCE((SELECT SUM(jumlah) FROM stock WHERE sample_id=s.id),0) AS total FROM samples s $where ORDER BY s.id DESC");
 $rows = [];
-while($r=$q->fetch_assoc()){
-  $sid=(int)$r['id'];
-  $stp=$conn->prepare("SELECT ukuran,jumlah,harga FROM stock WHERE sample_id=? ORDER BY ukuran");
-  $stp->bind_param('i',$sid); $stp->execute();
-  $rs=$stp->get_result();
-  $det=[]; $prices=[];
-  while($s=$rs->fetch_assoc()){ $det[]=$s; $prices[]=(int)$s['harga']; }
-  $r['det']=$det;
-  $r['range']=$prices ? 'Rp '.number_format(min($prices),0,',','.') . ' – Rp '.number_format(max($prices),0,',','.') : rupiah($r['harga']);
-  $rows[]=$r;
+$ids = [];
+while($r=$q->fetch_assoc()){ $r['det']=[]; $rows[(int)$r['id']]=$r; $ids[]=(int)$r['id']; }
+// 1 query stok untuk semua produk (sebelumnya N+1: 1 prepare per produk)
+if($ids){
+  $in = implode(',', $ids);
+  $qs = $conn->query("SELECT sample_id,ukuran,jumlah,harga FROM stock WHERE sample_id IN ($in) ORDER BY ukuran");
+  if($qs) while($s=$qs->fetch_assoc()){ $sid=(int)$s['sample_id']; if(isset($rows[$sid])) $rows[$sid]['det'][]=$s; }
 }
+foreach($rows as &$r){
+  $prices = array_map(fn($s)=>(int)$s['harga'], $r['det']);
+  $r['range']=$prices ? 'Rp '.number_format(min($prices),0,',','.') . ' – Rp '.number_format(max($prices),0,',','.') : rupiah($r['harga']);
+}
+unset($r); $rows=array_values($rows);
+// Pagination ringan gaya sama (12/halaman) — hanya batasi gambar yg dimuat, desain kartu tidak berubah
+$perPage=12; $totalRows=count($rows); $totalPages=max(1,(int)ceil($totalRows/$perPage));
+$page=max(1,min($totalPages,(int)($_GET['page']??1)));
+$pageRows=array_slice($rows,($page-1)*$perPage,$perPage);
+$base='sampel.php'.($kat!==''?'?kat='.urlencode($kat).'&':'?');
 $u = current_user();
 ?>
 <!DOCTYPE html><html lang="id" class="h-full bg-slate-50"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BUMK Store - Katalog Modern</title>
 <link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="dns-prefetch" href="https://placehold.co">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={theme:{extend:{colors:{brand:{50:'#f0f9ff',100:'#e0f2fe',500:'#0ea5e9',600:'#0284c7',700:'#0369a1',800:'#075985'}}}}}</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -47,17 +59,23 @@ $u = current_user();
 <div class="flex gap-2"><a href="sampel_add.php" class="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-semibold"><i class="fa-solid fa-plus mr-1"></i>Tambah Produk Baru</a><a href="kategori.php" class="border px-4 py-2 rounded-xl text-sm text-slate-600">Kelola Kategori</a></div>
 </div>
 <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-<?php foreach($rows as $r): ?>
+<?php foreach($pageRows as $r): ?>
 <div class="kard bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col" data-cari="<?= h(strtolower($r['nama'].' '.$r['kode'].' '.$r['warna_nama'].' '.$r['kategori'])) ?>">
-<div class="h-40 overflow-hidden relative bg-slate-100"><img src="<?= h($r['foto']) ?>" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/300x200/e2e8f0/64748b?text=Foto'"><span class="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-xs font-bold <?= (int)$r['total']<=5?'bg-amber-500 text-white':'bg-slate-900/80 text-white' ?>">Stok: <?= (int)$r['total'] ?></span></div>
+<div class="h-40 overflow-hidden relative bg-slate-100"><img src="<?= h($r['foto']) ?>" width="400" height="160" loading="lazy" decoding="async" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/300x200/e2e8f0/64748b?text=Foto'"><span class="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-xs font-bold <?= (int)$r['total']<=5?'bg-amber-500 text-white':'bg-slate-900/80 text-white' ?>">Stok: <?= (int)$r['total'] ?></span></div>
 <div class="p-4 flex-1 flex flex-col"><span class="text-xs font-semibold text-brand-600 uppercase"><?= h($r['kategori']) ?> • <?= h($r['kode']) ?></span><h4 class="font-bold text-sm mt-0.5"><?= h($r['nama']) ?></h4><span class="text-xs text-slate-500"><span class="inline-block w-3 h-3 rounded-full border align-middle" style="background:<?= h($r['warna_hex']) ?>"></span> <?= h($r['warna_nama']) ?></span><p class="text-sm font-bold mt-1"><?= h($r['range']) ?></p><p class="text-[11px] text-slate-400 mt-1"><?= h(implode(' | ', array_map(fn($s)=>$s['ukuran'].':'.$s['jumlah'], $r['det'])) ?: 'belum ada stok') ?></p>
 <div class="mt-3 pt-3 border-t flex gap-1"><a href="sampel_kelola.php?id=<?= (int)$r['id'] ?>" class="flex-1 text-center p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a><form method="post" action="sampel_hapus.php" class="flex-1" onsubmit="return confirm('Hapus?')"><input type="hidden" name="id" value="<?= (int)$r['id'] ?>"><button class="w-full p-2 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-lg text-xs"><i class="fa-solid fa-trash-can"></i></button></form></div></div>
 </div>
 <?php endforeach; ?>
 </div>
 <?php if(!$rows): ?><p class="text-sm text-slate-400">Tidak ada produk.</p><?php endif; ?>
+<?php if($totalPages>1): ?><div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+<span class="text-xs text-slate-400 w-full text-center">Menampilkan <?= count($pageRows) ?> dari <?= (int)$totalRows ?> produk • Halaman <?= (int)$page ?> dari <?= (int)$totalPages ?></span>
+<?php if($page>1): ?><a href="<?= $base.'page='.($page-1) ?>" class="px-3 py-2 border rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100">← Sebelumnya</a><?php endif; ?>
+<?php for($p=1;$p<=$totalPages;$p++): ?><?php if($p===$page): ?><span class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white"><?= $p ?></span><?php else: ?><a href="<?= $base.'page='.$p ?>" class="px-3 py-2 border rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100"><?= $p ?></a><?php endif; ?><?php endfor; ?>
+<?php if($page<$totalPages): ?><a href="<?= $base.'page='.($page+1) ?>" class="px-3 py-2 border rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100">Berikutnya →</a><?php endif; ?>
+</div><?php endif; ?>
 </main></div>
 <script>
-document.getElementById('fkat').onchange=e=>{const v=e.target.value;location.href='modern_katalog.php'+(v?'?kat='+encodeURIComponent(v):'');};
+document.getElementById('fkat').onchange=e=>{const v=e.target.value;location.href='sampel.php'+(v?'?kat='+encodeURIComponent(v):'');};
 document.getElementById('cari').oninput=e=>{const f=e.target.value.toLowerCase();document.querySelectorAll('.kard').forEach(k=>k.style.display=k.dataset.cari.includes(f)?'':'none');};
 </script><script>function toggleNav(force){const sb=document.getElementById('sidebar'),ov=document.getElementById('navOverlay');const show=typeof force==='boolean'?force:sb.classList.contains('-translate-x-full');sb.classList.toggle('-translate-x-full',!show);ov.classList.toggle('hidden',!show);}</script></body></html>
